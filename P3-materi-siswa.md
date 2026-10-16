@@ -1,6 +1,6 @@
 # Materi Siswa — Desain Skematik dan PCB dengan EasyEDA
 
-**Proyek:** sistem penyiraman otomatis berbasis ESP32 · **Pertemuan 3**
+**Proyek:** sistem penyiraman otomatis berbasis ESP32 & panel surya · **Pertemuan 3**
 
 Halo! Sekarang kamu akan merancang **skema** dan **papan (PCB)** sistem penyiraman di komputer menggunakan EasyEDA. Materi ini bisa kamu baca dan pelajari sendiri, lalu kerjakan langkah praktik dan checklist-nya.
 
@@ -9,7 +9,7 @@ Halo! Sekarang kamu akan merancang **skema** dan **papan (PCB)** sistem penyiram
 ## Setelah mempelajari ini, kamu bisa
 
 - Menjelaskan perbedaan skema (hubungan listrik) dan layout PCB (bentuk fisik papan).
-- Mengenali simbol resistor, kapasitor, dioda, transistor, dan header/konektor.
+- Mengenali simbol resistor, kapasitor, dioda, transistor, modul relay, buzzer, dan header/konektor.
 - Membuat skema sederhana dengan net label, GND, dan VCC.
 - Mengubah skema menjadi PCB dan menempatkan komponen.
 - Melakukan routing dan menjalankan DRC.
@@ -45,39 +45,54 @@ Halo! Sekarang kamu akan merancang **skema** dan **papan (PCB)** sistem penyiram
 
 | Komponen | Simbol | Kegunaan dalam proyek |
 |---|---|---|
-| Resistor | Zigzag/kotak | Membatasi arus ke basis transistor |
+| Resistor | Zigzag/kotak | Pembatas arus (di dalam modul relay; opsional di skema) |
 | Kapasitor | Dua garis sejajar | Meratakan tegangan (opsional) |
-| Dioda | Segitiga + garis | Flyback untuk melindungi dari lonjakan |
-| Transistor NPN | Tanda panah keluar | Saklar elektronik penggerak relay |
-| Header/konektor | Kotak dengan pin | Titik hubung sensor, ESP32, dan beban |
+| Dioda | Segitiga + garis | D1 (flyback) melindungi pompa dari lonjakan |
+| Transistor NPN | Tanda panah keluar | Saklar elektronik di dalam modul relay |
+| Modul relay | Kotak dengan kumparan + kontak | Pengendali daya 12V ke pompa (COM/NO) |
+| Buzzer | Setengah lingkaran | Indikator suara status penyiraman |
+| Header/konektor | Kotak dengan pin | Titik hubung sensor, ESP32, buzzer, dan pompa |
 
 ### 3. Net, net label, dan simbol daya
 
 - **Wire** menghubungkan dua pin secara langsung.
 - **Net label** memberi nama pada sambungan. Dua pin dengan label sama dianggap terhubung tanpa kawat panjang.
 - **GND** dan **VCC** adalah simbol daya yang sekaligus net label.
-- Contoh: pin OUT sensor diberi label `OUT_SENSOR`, lalu label sama dipakai di pin GPIO ESP32 — keduanya dianggap tersambung.
+- Contoh: pin AOUT Sensor 1 diberi label `SENSOR1_AOUT`, lalu label sama dipakai di pin GPIO34 ESP32 — keduanya dianggap tersambung. Sensor 2 memakai label `SENSOR2_AOUT` menuju GPIO35.
 
 ### 4. Skema acuan proyek
 
-Skema sistem penyiraman terdiri atas tiga kelompok: sensor, ESP32, dan relay/driver menuju pompa.
+Skema sistem penyiraman terdiri atas empat kelompok: dua sensor, ESP32, indikator (buzzer), dan modul relay menuju pompa.
 
 ```text
-SENSOR (J1)                       ESP32 (J2)
-  VCC  ─────────────────────────── 3V3
+SENSOR 1 (J1)                     ESP32 (U1)
+  VCC  ─────────────────────────── 5V
   GND  ─────────────────────────── GND
-  OUT  ─────────────────────────── GPIO34 (analog)
+  AOUT ─────────────────────────── GPIO34 (analog, ADC1)
 
-ESP32 GPIO27 ── R1 (1 kΩ) ── Basis Q1 (NPN BC547)
-VCC_5V ── kumparan Relay K1 ── Kolektor Q1
-  D1 (1N4007) antiparalel dengan kumparan K1
-  (katoda D1 ke VCC_5V, anoda D1 ke kolektor Q1)
-Emitor Q1 ── GND
+SENSOR 2 (J2)
+  VCC  ─────────────────────────── 5V
+  GND  ─────────────────────────── GND
+  AOUT ─────────────────────────── GPIO35 (analog, ADC1)
 
-Kontak relay: COM ── VCC pompa; NO ── Pompa (+); Pompa (−) ── GND
+BUZZER (BZ1) — buzzer aktif 5V
+  VCC  ─────────────────────────── 5V
+  GND  ─────────────────────────── GND
+  I/O  ─────────────────────────── GPIO27
+
+MODUL RELAY (K1) — 1-channel 5V optocoupler (active-low)
+  VCC  ─────────────────────────── 5V
+  GND  ─────────────────────────── GND
+  IN   ─────────────────────────── GPIO26
+
+Sisi beban 12V (terpisah dari sisi kendali 5V):
+  12V (SCC Load +) ── COM K1 ── NO K1 ── Pompa (+)
+  Pompa (−) ── GND 12V
+  D1 (1N4007) paralel-terbalik pada terminal pompa:
+    katoda D1 → Pompa (+); anoda D1 → Pompa (−)
 ```
 
-Sisi kendali (GPIO → resistor → basis transistor) dan sisi beban (relay → pompa) tetap dipisah.
+Sisi kendali (GPIO → modul relay) dan sisi beban (relay → pompa, 12V) tetap dipisah. Dioda D1 dipasang langsung pada terminal pompa (bukan pada kumparan relay).
 
 ### 5. Dari skema ke PCB
 
@@ -89,7 +104,7 @@ Setelah skema selesai, EasyEDA dapat **mengubah skema menjadi PCB** (Convert to 
 
 ### 6. Penempatan komponen dan routing
 
-- **Penempatan:** kelompokkan komponen menurut fungsi, bukan urutan skema. Perhatikan arah komponen berpolaritas (dioda, transistor).
+- **Penempatan:** kelompokkan komponen menurut fungsi, bukan urutan skema. Perhatikan arah komponen berpolaritas (dioda) dan posisi pin modul relay/buzzer.
 - **Routing:** tarik **track** untuk menghubungkan pad sesuai ratnest. Gunakan **via** untuk pindah lapisan.
 - Jalur daya (VCC, GND) biasanya lebih lebar dari jalur sinyal; ikuti contoh guru.
 
@@ -129,7 +144,7 @@ Garis tipis penunjuk kaki yang perlu disambung, sebelum jalur sebenarnya dibuat 
 1. Buka EasyEDA dan masuk ke akunmu.
 2. Buat proyek baru, lalu mulai **skema** baru.
 3. Tempatkan simbol sesuai skema acuan guru; hubungkan dengan wire atau net label.
-4. Beri label net: `GND`, `VCC`/`3V3`/`5V`, sinyal sensor, dan sinyal kendali.
+4. Beri label net: `GND`, `5V`, `12V`, sinyal sensor (2 buah), sinyal relay, dan sinyal buzzer.
 5. **Convert to PCB**; tempatkan komponen secara berkelompok sesuai fungsi.
 6. **Routing** track sesuai ratnest.
 7. Jalankan **DRC**; perbaiki error/warning.
@@ -145,20 +160,21 @@ Garis tipis penunjuk kaki yang perlu disambung, sebelum jalur sebenarnya dibuat 
 
 | Komponen | Nilai/spesifikasi | Footprint |
 |---|---|---|
-| Resistor R1 | | |
-| Dioda D1 | | |
-| Transistor Q1 | | |
-| Relay K1 | | |
-| Header sensor J1 | | |
-| Header/konektor ESP32 | | |
+| Header sensor 1 (J1) | Capacitive Soil Moisture v1.2 | |
+| Header sensor 2 (J2) | Capacitive Soil Moisture v1.2 | |
+| Header/konektor ESP32 | ESP32 DevKit V1 (30 pin) | |
+| Modul Relay K1 | 1-channel 5V optocoupler | |
+| Buzzer BZ1 | Aktif 5V | |
+| Dioda D1 | 1N4007 | |
+| Terminal/konektor pompa | DC 12V | |
 
 ### Checklist skema
 
-- [ ] Semua pin sensor (VCC, GND, OUT) terhubung ke tempat yang benar.
-- [ ] Net label GND dan VCC tidak tertukar.
-- [ ] Sinyal sensor menuju pin analog ESP32 yang benar.
-- [ ] Dioda D1 terpasang dengan arah (polaritas) yang benar.
-- [ ] Transistor Q1 (basis, kolektor, emitor) terhubung sesuai skema acuan.
+- [ ] Kedua sensor (VCC, GND, AOUT) terhubung ke 5V, GND, dan pin ADC yang benar (GPIO34 & GPIO35).
+- [ ] Net label GND, 5V, dan 12V tidak tertukar.
+- [ ] Sinyal relay (IN) menuju GPIO26 dan buzzer (I/O) menuju GPIO27.
+- [ ] Dioda D1 terpasang paralel-terbalik pada terminal pompa dengan polaritas yang benar.
+- [ ] Sisi beban (relay → pompa) memakai jalur 12V, terpisah dari sisi kendali 5V.
 
 ### Checklist layout dan DRC
 
@@ -173,7 +189,7 @@ Garis tipis penunjuk kaki yang perlu disambung, sebelum jalur sebenarnya dibuat 
 
 1. Apa perbedaan skema dan layout PCB?
 2. Apa fungsi net label, dan mengapa dipakai?
-3. Mengapa dioda D1 perlu dipasang pada kumparan relay?
+3. Mengapa dioda D1 (flyback) perlu dipasang paralel-terbalik pada terminal pompa?
 4. Apa yang kamu periksa sebelum desain PCB dianggap selesai?
 
 ---
@@ -181,14 +197,15 @@ Garis tipis penunjuk kaki yang perlu disambung, sebelum jalur sebenarnya dibuat 
 ## Rangkuman
 
 - Alur pengerjaan: **skema** (simbol + net) → **PCB** (footprint + ratnest) → **penempatan** → **routing** → **DRC**.
-- **Net label** membuat skema rapi; GND/VCC tidak boleh tertukar.
-- Perhatikan **polaritas** dioda dan transistor; **DRC** harus bersih.
+- Sistem memakai **dua sensor** (GPIO34 & GPIO35), **modul relay** (GPIO26), dan **buzzer** (GPIO27).
+- **Net label** membuat skema rapi; GND/5V/12V tidak boleh tertukar.
+- Perhatikan **polaritas** dioda D1 pada pompa; **DRC** harus bersih.
 
 ---
 
 ## Catatan keselamatan
 
 1. Gunakan skema acuan dan nilai komponen yang sudah diperiksa guru.
-2. Perhatikan polaritas dioda dan transistor; arah terbalik dapat merusak komponen saat dirakit.
+2. Perhatikan polaritas dioda D1 dan arah terminal pompa; pemasangan terbalik dapat merusak komponen saat dirakit.
 3. Simpan proyek secara teratur dan beri nama file yang jelas.
 4. Fabrikasi, ekspor Gerber, dan penyolderan hanya dilakukan dengan pengawasan guru.
