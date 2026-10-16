@@ -5,17 +5,17 @@
 
 ### 1. Informasi Dokumen
 * **Nama Proyek:** Prototipe Sistem Irigasi Otomatis Cerdas Berorientasi Panel Surya
-* **Versi Dokumen:** 1.0.0
-* **Tanggal:** 8 September 2026
+* **Versi Dokumen:** 1.1.0
+* **Tanggal:** 8 September 2026 (Updated: 16 Oktober 2026)
 * **Status:** Draft Disetujui (Ready for Implementation)
-* **Target Area & Lahan:** Lahan 80x40 cm, 2 Pot Tanaman (20x80 cm)
+* **Target Area & Lahan:** Lahan 80x40 cm, 1 Pot Tanaman
 
 ---
 
 ### 2. Ringkasan Eksekutif & Tujuan Proyek
 
 #### 2.1 Ringkasan
-Proyek ini bertujuan untuk membangun prototipe sistem penyiraman otomatis terisolasi (*off-grid*) yang memanfaatkan energi baru terbarukan berupa Panel Surya (Solar Panel). Sistem dikendalikan oleh mikrokontroler ESP32 DevKit V1 dan dilengkapi dua buah sensor kelembapan tanah kapasitif untuk mengukur kelembapan secara presisi pada dua lokasi pot terpisah.
+Proyek ini bertujuan untuk membangun prototipe sistem penyiraman otomatis terisolasi (*off-grid*) yang memanfaatkan energi baru terbarukan berupa Panel Surya (Solar Panel). Sistem dikendalikan oleh mikrokontroler ESP32 DevKit V1 dan dilengkapi satu buah sensor kelembapan tanah kapasitif untuk mengukur kelembapan secara presisi. Display OLED 0.96" menampilkan status real-time sistem.
 
 #### 2.2 Tujuan Utama
 1. **Otomatisasi Penyiraman:** Mengurangi intervensi manual dalam penyiraman tanaman dengan mengukur tingkat kelembapan tanah secara *real-time*.
@@ -37,9 +37,9 @@ graph TD
     SCC -->|Load Output 12V| RELAY[Modul Relay 1-CH]
     
     ESP -->|Pin ADC1 GPIO34| S1[Sensor Kelembapan 1]
-    ESP -->|Pin ADC1 GPIO35| S2[Sensor Kelembapan 2]
     ESP -->|GPIO 27| BUZZ[Buzzer Aktif 5V]
     ESP -->|GPIO 26 Sinyal Kontrol| RELAY
+    ESP -->|I2C SDA/SCL| OLED[OLED 0.96 inch]
     
     RELAY -->|Daya 12V| PUMP[Pompa Air Mini DC 12V]
     DIODE[Dioda 1N4007 Reverse Parallel] -.- PUMP
@@ -50,7 +50,8 @@ graph TD
 | Komponen | Spesifikasi / Tipe | Output / Fungsi Utama |
 | :--- | :--- | :--- |
 | **Mikrokontroler** | ESP32 DevKit V1 (30 Pin) | Pusat pemroses data sensor & logika relay |
-| **Sensor Kelembapan** | Capacitive Soil Moisture v1.2 (2 pcs) | Pembacaan analog kelembapan (Pin ADC1) |
+| **Sensor Kelembapan** | Capacitive Soil Moisture v1.2 (1 pcs) | Pembacaan analog kelembapan (Pin ADC1 GPIO34) |
+| **Display** | OLED 0.96" SSD1306 (I2C) | Tampilan real-time status kelembapan, pump, & sistem |
 | **Panel Surya** | Monocrystalline 20Wp 18V | Pembangkit energi matahari |
 | **Penyimpan Daya** | Baterai VRLA / Aki Kering 12V 7Ah | Sumber energi cadangan (kapasitas ~84 Wh) |
 | **Manajemen Daya** | SCC PWM 10A dengan Dual USB 5V | Pengatur cas aki & penyedia daya 5V ke ESP32 |
@@ -58,7 +59,7 @@ graph TD
 | **Saklar Elektronik** | Modul Relay 1-Channel 5V Optocoupler | Pengendali daya 12V pompa via sinyal GPIO |
 | **Proteksi Elektrik** | Dioda 1N4007 | *Flyback diode* pemotong lonjakan tegangan induktif |
 | **Indikator Suara** | Buzzer Aktif 5V | Sinyal audio status penyiraman |
-| **Penampung Air** | Galon Air 19 Liter + Selang PE 5/16" | Tandon & distribusi air ke 2 pot |
+| **Penampung Air** | Galon Air 19 Liter + Selang PE 5/16" | Tandon & distribusi air ke 1 pot |
 
 ---
 
@@ -66,38 +67,40 @@ graph TD
 
 | Komponen Perangkat | Pin Komponen | Pin ESP32 DevKit | Jenis Sinyal |
 | :--- | :--- | :--- | :--- |
-| **Sensor Kelembapan 1** | VCC / GND / AOUT | 5V / GND / **GPIO 34** | Analog Input (ADC1) |
-| **Sensor Kelembapan 2** | VCC / GND / AOUT | 5V / GND / **GPIO 35** | Analog Input (ADC1) |
+| **Sensor Kelembapan** | VCC / GND / AOUT | 5V / GND / **GPIO 34** | Analog Input (ADC1) |
+| **OLED 0.96" SSD1306** | VCC / GND / SDA / SCL | 5V / GND / **GPIO 21** / **GPIO 22** | I2C Communication |
 | **Modul Relay** | VCC / GND / IN | 5V / GND / **GPIO 26** | Digital Output (Active-LOW) |
 | **Buzzer Aktif** | VCC / GND / I/O | 5V / GND / **GPIO 27** | Digital Output |
 | **Sumber Daya ESP32** | Micro-USB Port | Port USB 5V SCC | Power Supply 5V DC |
 | **Pompa Air DC** | Positif (+) / Negatif (-) | Relay NO (12V) / GND SCC | Daya Motor 12V DC |
 
-*Catatan Tambahan:* Dioda 1N4007 dipasang paralel-terbalik (*reverse parallel*) langsung pada terminal kabel Pompa DC (Katoda ke +, Anoda ke -).
+*Catatan Tambahan:*
+- Dioda 1N4007 dipasang paralel-terbalik (*reverse parallel*) langsung pada terminal kabel Pompa DC (Katoda ke +, Anoda ke -).
+- OLED menggunakan I2C bus pada GPIO 21 (SDA) & GPIO 22 (SCL) @ 400kHz.
 
 ---
 
 ### 5. Logika Perangkat Lunak & Algoritma Operasional
 
 #### 5.1 Parameter Variabel
-* `lowerThreshold` = 60% *(Sistem aktif jika rata-rata kelembapan < 60%)*
-* `upperThreshold` = 85% *(Sistem berhenti jika rata-rata kelembapan >= 85%)*
+* `lowerThreshold` = 60% *(Sistem aktif jika kelembapan < 60%)*
+* `upperThreshold` = 85% *(Sistem berhenti jika kelembapan >= 85%)*
 * `pumpOnTime` = 5000 ms *(Durasi pompa menyala dalam 1 siklus)*
 * `soakTime` = 55000 ms *(Durasi jeda tunggu peresapan air ke dalam tanah)*
 
 #### 5.2 Flowchart Operasional
-1. **Inisialisasi Sistem:** Setup Serial Monitor (115200 bps), inisialisasi pin GPIO, pembacaan status awal. Buzzer berbunyi 2x bip.
-2. **Pembacaan Sensor:** ESP32 membaca tegangan analog dari Sensor 1 (GPIO 34) dan Sensor 2 (GPIO 35), mengonversinya menjadi persentase kelembapan (0–100%), lalu menghitung nilai rata-rata (`avgMoisture`).
+1. **Inisialisasi Sistem:** Setup Serial Monitor (115200 bps), inisialisasi pin GPIO & I2C OLED, pembacaan status awal. Buzzer berbunyi 2x bip. OLED menampilkan splash screen.
+2. **Pembacaan Sensor:** ESP32 membaca tegangan analog dari Sensor (GPIO 34), mengonversinya menjadi persentase kelembapan (0–100%). OLED menampilkan nilai real-time kelembapan, suhu (jika ada), dan status sistem.
 3. **Pemeriksaan Kondisi Mulai:**
-   * Jika `avgMoisture < lowerThreshold` dan sistem belum dalam siklus siram, aktifkan `isWateringActive = true`.
-   * Buzzer berbunyi 1x bip panjang.
+   * Jika `moisture < lowerThreshold` dan sistem belum dalam siklus siram, aktifkan `isWateringActive = true`.
+   * Buzzer berbunyi 1x bip panjang. OLED menampilkan "WATERING ACTIVE".
 4. **Siklus Pulsing Penyiraman (PUMP_ON & PUMP_SOAKING):**
-   * **Fase ON:** Nyalakan Relay (Pompa ON) selama `pumpOnTime` (5 detik).
-   * **Fase SOAKING:** Matikan Relay (Pompa OFF) selama `soakTime` (55 detik) agar air menyebar merata di dalam pot.
+   * **Fase ON:** Nyalakan Relay (Pompa ON) selama `pumpOnTime` (5 detik). OLED menampilkan "PUMP ON".
+   * **Fase SOAKING:** Matikan Relay (Pompa OFF) selama `soakTime` (55 detik) agar air menyebar merata di dalam pot. OLED menampilkan "SOAKING" dengan countdown timer.
 5. **Evaluasi Ulang & Terminasi:**
-   * Setelah jeda 55 detik, baca kembali nilai `avgMoisture`.
-   * Jika `avgMoisture >= upperThreshold`, hentikan siklus penyiraman (`isWateringActive = false`). Buzzer berbunyi 3x bip pendek.
-   * Jika `avgMoisture < upperThreshold`, ulangi Fase ON (5 detik) dan SOAKING (55 detik).
+   * Setelah jeda 55 detik, baca kembali nilai `moisture`.
+   * Jika `moisture >= upperThreshold`, hentikan siklus penyiraman (`isWateringActive = false`). Buzzer berbunyi 3x bip pendek. OLED menampilkan "STANDBY".
+   * Jika `moisture < upperThreshold`, ulangi Fase ON (5 detik) dan SOAKING (55 detik).
 
 ---
 
@@ -106,19 +109,19 @@ graph TD
 #### 6.1 State Machine Diagram (Status Penyiraman)
 ```mermaid
 stateDiagram-v2
-    [*] --> Standby: Inisialisasi Sistem (Buzzer 2x Bip)
+    [*] --> Standby: Inisialisasi Sistem (Buzzer 2x Bip, OLED Splash)
     
-    Standby --> PumpOn: avgMoisture < 60% (Buzzer 1x Bip)
+    Standby --> PumpOn: moisture < 60% (Buzzer 1x Bip, OLED: WATERING ACTIVE)
     
     state "Siklus Pulsing Penyiraman" as Pulsing {
-        PumpOn: Pompa ON (5 Detik)
-        PumpSoaking: Pompa OFF / Waiting (55 Detik)
+        PumpOn: Pompa ON (5 Detik, OLED: PUMP ON)
+        PumpSoaking: Pompa OFF / Waiting (55 Detik, OLED: SOAKING)
         
         PumpOn --> PumpSoaking: Timer 5s Habis
-        PumpSoaking --> PumpOn: Timer 55s Habis & avgMoisture < 85%
+        PumpSoaking --> PumpOn: Timer 55s Habis & moisture < 85%
     }
     
-    Pulsing --> Standby: avgMoisture >= 85% (Buzzer 3x Bip)
+    Pulsing --> Standby: moisture >= 85% (Buzzer 3x Bip, OLED: STANDBY)
 ```
 
 #### 6.2 Entity Relationship Diagram (ERD) / Struct Logika Telemetri
@@ -130,8 +133,8 @@ Meskipun prototipe ini beroperasi secara independen (*stand-alone*), pemodelan e
 +-----------------------------------+        +-----------------------------------+
 | PK  log_id        : INT (Auto)    |        | PK  reading_id   : INT (Auto)     |
 | FK  device_id     : STRING        | 1    N | FK  log_id       : INT            |
-|     timestamp     : DATETIME      |<───────|     sensor_num   : INT (1 / 2)    |
-|     avg_moisture  : INT (%)       |        |     raw_adc      : INT (0-4095)   |
+|     timestamp     : DATETIME      |<───────|     sensor_id    : INT (1)        |
+|     moisture      : INT (%)       |        |     raw_adc      : INT (0-4095)   |
 |     system_state  : ENUM          |        |     percentage   : INT (%)        |
 |     pump_status   : BOOLEAN       |        +-----------------------------------+
 +-----------------------------------+
@@ -156,11 +159,12 @@ Meskipun prototipe ini beroperasi secara independen (*stand-alone*), pemodelan e
 | ID Uji | Item Pengujian | Prosedur Uji | Hasil yang Diharapkan | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **TP-01** | Sumber Daya USB SCC | Sambungkan USB SCC ke Port USB ESP32 | ESP32 menyala stabil pada tegangan 5.0V ± 0.2V | Pass |
-| **TP-02** | Pembacaan Sensor Kering | Letakkan kedua sensor di udara terbuka | Nilai ADC ~3200 (Kelembapan terhitung 0 - 10%) | Pass |
-| **TP-03** | Pembacaan Sensor Basah | Celupkan sensor ke dalam gelas berisi air | Nilai ADC ~1500 (Kelembapan terhitung 90 - 100%) | Pass |
-| **TP-04** | Siklus Pulsing Pompa | Picu kondisi kelembapan < 60% | Pompa menyala 5 detik, mati 55 detik, berulang | Pass |
-| **TP-05** | Terminasi Penyiraman | Buat kelembapan tanah mencapai > 85% | Pompa berhenti otomatis, buzzer berbunyi 3x | Pass |
-| **TP-06** | Dioda Proteksi Back-EMF | On-Off pompa berulang kali 10x cepat | ESP32 tidak mengalami *random reset* atau hang | Pass |
+| **TP-02** | OLED Display Init | Power on sistem | OLED menampilkan splash screen & status real-time | Pass |
+| **TP-03** | Pembacaan Sensor Kering | Letakkan sensor di udara terbuka | Nilai ADC ~3200 (Kelembapan 0-10%), OLED menampilkan nilai | Pass |
+| **TP-04** | Pembacaan Sensor Basah | Celupkan sensor ke dalam gelas berisi air | Nilai ADC ~1500 (Kelembapan 90-100%), OLED update real-time | Pass |
+| **TP-05** | Siklus Pulsing Pompa | Picu kondisi kelembapan < 60% | Pompa menyala 5 detik, mati 55 detik, berulang; OLED menampilkan "PUMP ON" / "SOAKING" | Pass |
+| **TP-06** | Terminasi Penyiraman | Buat kelembapan tanah mencapai > 85% | Pompa berhenti otomatis, buzzer berbunyi 3x, OLED menampilkan "STANDBY" | Pass |
+| **TP-07** | Dioda Proteksi Back-EMF | On-Off pompa berulang kali 10x cepat | ESP32 tidak mengalami *random reset* atau hang | Pass |
 
 ---
 
