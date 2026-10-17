@@ -17,23 +17,15 @@ void loop() {
   // Baca nilai RAW ADC dari Sensor (GPIO 34)
   int sensor_raw = analogRead(SENSOR_PIN);
   
-  // Konversi ke persentase kelembapan (0-100%)
-  int moisture = map(sensor_raw, SENSOR_DRY_ADC, SENSOR_WET_ADC, 0, 100);
+  // Contoh map: scaling dari range ADC ke 0-100%
+  int scaled = map(sensor_raw, 0, ADC_MAX, 0, 100);
   
   // Tampilkan hasil
   Serial.print("Sensor Raw: ");
   Serial.print(sensor_raw);
-  Serial.print(" -> ");
-  Serial.print(moisture);
+  Serial.print(" -> Scaled: ");
+  Serial.print(scaled);
   Serial.println("%");
   
-  // Referensi Kalibrasi
-  Serial.print("(Kering: ");
-  Serial.print(SENSOR_DRY_ADC);
-  Serial.print(" | Basah: ");
-  Serial.print(SENSOR_WET_ADC);
-  Serial.println(")");
-  
-  Serial.println("---");
   delay(2000); // Baca setiap 2 detik
 }

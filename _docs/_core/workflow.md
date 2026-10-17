@@ -14,7 +14,7 @@ project/
 ├── .env                   # Environment variables
 └── _docs/
     ├── _core/
-    │   └── rule.md        # This file - workflow rules
+    │   └── workflow.md    # This file - workflow rules
     └── [documentation]
 ```
 
@@ -45,7 +45,8 @@ Each feature/module gets its own test file in `test/` folder.
 platform = <platform>
 board = <board>
 framework = <framework>
-test_dir = test
+build_src_filter = +<../test/test-<feature>.cpp>
+test_speed = 115200
 ```
 
 ### Production Environment:
@@ -141,7 +142,8 @@ Implement feature test logic.
 platform = <...>
 board = <...>
 framework = <...>
-test_dir = test
+build_src_filter = +<../test/test-<feature>.cpp>
+test_speed = 115200
 ```
 
 ### Step 3: Update config.h

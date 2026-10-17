@@ -5,6 +5,7 @@
 #define SENSOR_PIN 34            // ADC1 GPIO34 - Sensor Kelembapan
 #define OLED_SDA_PIN 21          // GPIO21 - I2C SDA (OLED)
 #define OLED_SCL_PIN 22          // GPIO22 - I2C SCL (OLED)
+#define LED_BUILTIN_PIN 2        // GPIO2 - Built-in LED
 #define RELAY_PIN 26             // GPIO26 - Modul Relay (Active-LOW)
 #define BUZZER_PIN 27            // GPIO27 - Buzzer Aktif 5V
 
