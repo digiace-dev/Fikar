@@ -6,7 +6,7 @@
 #define OLED_SDA_PIN 21          // GPIO21 - I2C SDA (OLED)
 #define OLED_SCL_PIN 22          // GPIO22 - I2C SCL (OLED)
 #define LED_BUILTIN_PIN 2        // GPIO2 - Built-in LED
-#define RELAY_PIN 26             // GPIO26 - Modul Relay (Active-LOW)
+#define RELAY_PIN 25             // GPIO25 - Modul Relay (Active-HIGH)
 #define BUZZER_PIN 27            // GPIO27 - Buzzer Aktif 5V
 
 // ============ I2C COMMUNICATION (OLED) ============
@@ -36,6 +36,10 @@
 #define BUZZER_SHORT_DURATION 200 // Bip pendek (ms)
 #define BUZZER_LONG_DURATION 500  // Bip panjang (ms)
 
+// ============ BUZZER CONTROL LOGIC ============
+#define BUZZER_ON HIGH           // Buzzer aktif-HIGH (5V mengaktifkan buzzer)
+#define BUZZER_OFF LOW           // Buzzer non-aktif (0V mematikan buzzer)
+
 // ============ SYSTEM STATE ENUM ============
 enum SystemState {
   STATE_STANDBY = 0,           // Siap menunggu kondisi aktif
@@ -44,7 +48,7 @@ enum SystemState {
 };
 
 // ============ RELAY CONTROL LOGIC ============
-#define RELAY_ON LOW             // Relay aktif-LOW (0V mengaktifkan pompa)
-#define RELAY_OFF HIGH           // Relay non-aktif (5V mematikan pompa)
+#define RELAY_ON HIGH            // Relay aktif-HIGH (5V mengaktifkan pompa)
+#define RELAY_OFF LOW            // Relay non-aktif (0V mematikan pompa)
 
 #endif // CONFIG_H

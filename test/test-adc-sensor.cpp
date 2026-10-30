@@ -21,6 +21,8 @@ void loop() {
   int scaled = map(sensor_raw, 0, ADC_MAX, 0, 100);
   
   // Tampilkan hasil
+  Serial.print(SENSOR_PIN);
+  Serial.print(" ");
   Serial.print("Sensor Raw: ");
   Serial.print(sensor_raw);
   Serial.print(" -> Scaled: ");

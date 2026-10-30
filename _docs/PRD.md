@@ -38,7 +38,7 @@ graph TD
     
     ESP -->|Pin ADC1 GPIO34| S1[Sensor Kelembapan 1]
     ESP -->|GPIO 27| BUZZ[Buzzer Aktif 5V]
-    ESP -->|GPIO 26 Sinyal Kontrol| RELAY
+    ESP -->|GPIO 25 Sinyal Kontrol| RELAY
     ESP -->|I2C SDA/SCL| OLED[OLED 0.96 inch]
     
     RELAY -->|Daya 12V| PUMP[Pompa Air Mini DC 12V]
@@ -69,7 +69,7 @@ graph TD
 | :--- | :--- | :--- | :--- |
 | **Sensor Kelembapan** | VCC / GND / AOUT | 5V / GND / **GPIO 34** | Analog Input (ADC1) |
 | **OLED 0.96" SSD1306** | VCC / GND / SDA / SCL | 5V / GND / **GPIO 21** / **GPIO 22** | I2C Communication |
-| **Modul Relay** | VCC / GND / IN | 5V / GND / **GPIO 26** | Digital Output (Active-LOW) |
+| **Modul Relay** | VCC / GND / IN | 5V / GND / **GPIO 25** | Digital Output (Active-HIGH) |
 | **Buzzer Aktif** | VCC / GND / I/O | 5V / GND / **GPIO 27** | Digital Output |
 | **Sumber Daya ESP32** | Micro-USB Port | Port USB 5V SCC | Power Supply 5V DC |
 | **Pompa Air DC** | Positif (+) / Negatif (-) | Relay NO (12V) / GND SCC | Daya Motor 12V DC |
@@ -80,9 +80,37 @@ graph TD
 
 ---
 
-### 5. Logika Perangkat Lunak & Algoritma Operasional
+### 5. Integrasi Komunikasi Telegram & WiFi Manager
 
-#### 5.1 Parameter Variabel
+#### 5.1 WiFi Manager & Konfigurasi Access Point
+Sistem menggunakan library **WiFiManager** untuk konfigurasi dinamis WiFi tanpa hardcoding SSID/password:
+- ESP32 membuat *Soft AP* (Access Point) dengan SSID "FIKAR-Config" pada startup atau jika koneksi WiFi gagal
+- User terhubung ke AP tersebut via smartphone dan membuka portal konfigurasi di `192.168.4.1`
+- User memasukkan SSID, password, dan token Telegram bot untuk autentikasi
+- Pengaturan disimpan di SPIFFS (storage internal ESP32) agar persistent
+
+#### 5.2 Perintah Telegram Bot
+Bot Telegram menerima perintah berikut dari user:
+- `/set <nilai>` — Set threshold kelembapan (%) kapan pompa ON (contoh: `/set 60` untuk 60%)
+- `/set-adc <nilai>` — Set threshold berdasarkan nilai ADC kapan pompa ON (contoh: `/set-adc 3000` untuk ADC 3000)
+- `/set-time <detik>` — Set durasi pompa ON dalam detik (contoh: `/set-time 5` untuk 5 detik)
+- `/status` — Cek parameter aktif, nilai sensor moisture (%), nilai ADC, status output (pompa/buzzer), dan mode operasional (Manual / Auto) real-time
+- `/on` — Override manual pompa ON dan masuk mode manual (bypass auto-control)
+- `/off` — Override manual pompa OFF dan masuk mode manual
+- `/auto` — Kembali ke mode auto (normal operation)
+
+#### 5.3 Alur Operasional Telegram Integration
+1. Sistem terhubung ke WiFi dan Telegram Bot API menggunakan library **TinyGSM** atau **UniversalTelegramBot**
+2. Saat startup, sistem mengirim pesan ke chat group Telegram: "FIKAR System Online - Ready for Commands"
+3. User mengirim perintah melalui chat, bot memproses dan mengeksekusi aksi pada sistem
+4. Setiap perubahan parameter atau event penting (pompa ON/OFF, threshold tercapai) dikirim notifikasi Telegram
+5. Mode manual dapat diakses dari Telegram tanpa fisik di lokasi sistem
+
+---
+
+### 6. Logika Perangkat Lunak & Algoritma Operasional
+
+#### 6.1 Parameter Variabel
 * `lowerThreshold` = 60% *(Sistem aktif jika kelembapan < 60%)*
 * `upperThreshold` = 85% *(Sistem berhenti jika kelembapan >= 85%)*
 * `pumpOnTime` = 5000 ms *(Durasi pompa menyala dalam 1 siklus)*
@@ -104,9 +132,9 @@ graph TD
 
 ---
 
-### 6. Desain Data & Pemodelan Sistem (ERD & State Machine)
+### 7. Desain Data & Pemodelan Sistem (ERD & State Machine)
 
-#### 6.1 State Machine Diagram (Status Penyiraman)
+#### 7.1 State Machine Diagram (Status Penyiraman)
 ```mermaid
 stateDiagram-v2
     [*] --> Standby: Inisialisasi Sistem (Buzzer 2x Bip, OLED Splash)
@@ -124,7 +152,7 @@ stateDiagram-v2
     Pulsing --> Standby: moisture >= 85% (Buzzer 3x Bip, OLED: STANDBY)
 ```
 
-#### 6.2 Entity Relationship Diagram (ERD) / Struct Logika Telemetri
+#### 7.2 Entity Relationship Diagram (ERD) / Struct Logika Telemetri
 Meskipun prototipe ini beroperasi secara independen (*stand-alone*), pemodelan entitas data disiapkan untuk pengembangan modul IoT telemetri di masa depan.
 
 ```
@@ -142,7 +170,7 @@ Meskipun prototipe ini beroperasi secara independen (*stand-alone*), pemodelan e
 
 ---
 
-### 7. Persyaratan Non-Fungsional (NFR)
+### 8. Persyaratan Non-Fungsional (NFR)
 
 1. **Andal & Tahan Cuaca (Reliability & Weatherproofing):**
    * Seluruh komponen elektronik utama (ESP32, Relay, SCC, Baterai) terpasang di dalam *Box Enclosure IP65* tahan cipratan air dan debu outdoor.
@@ -154,7 +182,7 @@ Meskipun prototipe ini beroperasi secara independen (*stand-alone*), pemodelan e
 
 ---
 
-### 8. Rencana Pengujian (Test Plan) & Kriteria Penerimaan
+### 9. Rencana Pengujian (Test Plan) & Kriteria Penerimaan
 
 | ID Uji | Item Pengujian | Prosedur Uji | Hasil yang Diharapkan | Status |
 | :--- | :--- | :--- | :--- | :--- |
@@ -168,7 +196,7 @@ Meskipun prototipe ini beroperasi secara independen (*stand-alone*), pemodelan e
 
 ---
 
-### 9. Pengembangan Masa Depan (Roadmap)
+### 10. Pengembangan Masa Depan (Roadmap)
 * **Fase 2:** Penambahan fitur WiFi Dashboard menggunakan Protocol MQTT / Blynk IoT untuk pemantauan grafis kelembapan tanah secara remote dari Smartphone.
 * **Fase 3:** Implementasi mode *Deep Sleep* pada ESP32 untuk menekan konsumsi daya hingga < 1 mA saat kondisi tanah masih basah.
 * **Fase 4:** Integrasi sensor ketinggian air (*water level sensor*) pada tandon galon 19L untuk memberi peringatan jika stok air habis.
