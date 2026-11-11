@@ -15,7 +15,7 @@
 ### 2. Ringkasan Eksekutif & Tujuan Proyek
 
 #### 2.1 Ringkasan
-Proyek ini bertujuan untuk membangun prototipe sistem penyiraman otomatis terisolasi (*off-grid*) yang memanfaatkan energi baru terbarukan berupa Panel Surya (Solar Panel). Sistem dikendalikan oleh mikrokontroler ESP32 DevKit V1 dan dilengkapi satu buah sensor kelembapan tanah kapasitif untuk mengukur kelembapan secara presisi. Display OLED 0.96" menampilkan status real-time sistem.
+Proyek ini bertujuan untuk membangun prototipe sistem penyiraman otomatis terisolasi (*off-grid*) yang memanfaatkan energi baru terbarukan berupa Panel Surya (Solar Panel). Sistem dikendalikan oleh mikrokontroler NodeMCU ESP32 dan dilengkapi satu buah sensor kelembapan tanah kapasitif untuk mengukur kelembapan secara presisi. Display OLED 0.96" menampilkan status real-time sistem.
 
 #### 2.2 Tujuan Utama
 1. **Otomatisasi Penyiraman:** Mengurangi intervensi manual dalam penyiraman tanaman dengan mengukur tingkat kelembapan tanah secara *real-time*.
@@ -33,7 +33,7 @@ graph TD
     SP[Panel Surya 20Wp] --> SCC[Solar Charge Controller 10A]
     BAT[Baterai VRLA 12V 7Ah] <--> SCC
     
-    SCC -->|USB Output 5V| ESP[ESP32 DevKit V1]
+    SCC -->|USB Output 5V| ESP[NodeMCU ESP32]
     SCC -->|Load Output 12V| RELAY[Modul Relay 1-CH]
     
     ESP -->|Pin ADC1 GPIO34| S1[Sensor Kelembapan 1]
@@ -49,7 +49,7 @@ graph TD
 
 | Komponen | Spesifikasi / Tipe | Output / Fungsi Utama |
 | :--- | :--- | :--- |
-| **Mikrokontroler** | ESP32 DevKit V1 (30 Pin) | Pusat pemroses data sensor & logika relay |
+| **Mikrokontroler** | NodeMCU ESP32 | Pusat pemroses data sensor & logika relay |
 | **Sensor Kelembapan** | Capacitive Soil Moisture v1.2 (1 pcs) | Pembacaan analog kelembapan (Pin ADC1 GPIO34) |
 | **Display** | OLED 0.96" SSD1306 (I2C) | Tampilan real-time status kelembapan, pump, & sistem |
 | **Panel Surya** | Monocrystalline 20Wp 18V | Pembangkit energi matahari |
@@ -65,7 +65,7 @@ graph TD
 
 ### 4. Skema Pinout & Pengkabelan
 
-| Komponen Perangkat | Pin Komponen | Pin ESP32 DevKit | Jenis Sinyal |
+| Komponen Perangkat | Pin Komponen | Pin NodeMCU ESP32 | Jenis Sinyal |
 | :--- | :--- | :--- | :--- |
 | **Sensor Kelembapan** | VCC / GND / AOUT | 5V / GND / **GPIO 34** | Analog Input (ADC1) |
 | **OLED 0.96" SSD1306** | VCC / GND / SDA / SCL | 5V / GND / **GPIO 21** / **GPIO 22** | I2C Communication |
@@ -116,7 +116,38 @@ Bot Telegram menerima perintah berikut dari user:
 * `pumpOnTime` = 5000 ms *(Durasi pompa menyala dalam 1 siklus)*
 * `soakTime` = 55000 ms *(Durasi jeda tunggu peresapan air ke dalam tanah)*
 
-#### 5.2 Flowchart Operasional
+#### 6.2 Flowchart Operasional
+```mermaid
+flowchart TD
+    Start([START]) --> Init[Inisialisasi Sistem:<br/>Serial 115200 bps<br/>GPIO Pins Setup<br/>I2C OLED Init]
+    Init --> Beep2[Buzzer 2x Bip Pendek]
+    Beep2 --> Splash[OLED Splash Screen:<br/>FIKAR SYSTEM]
+    Splash --> Standby[STATE: STANDBY<br/>OLED: STANDBY]
+    
+    Standby --> ReadSensor[Baca Sensor GPIO34:<br/>Raw ADC → Moisture %]
+    ReadSensor --> UpdateDisplay[Update OLED:<br/>Moisture, ADC, State]
+    
+    UpdateDisplay --> CheckLow{moisture <<br/>lowerThreshold<br/>60%?}
+    CheckLow -->|No| Delay1[Delay 500ms]
+    Delay1 --> ReadSensor
+    
+    CheckLow -->|Yes| BeepLong[Buzzer 1x Bip Panjang<br/>OLED: PUMP ON]
+    BeepLong --> PumpOn[STATE: PUMP_ON<br/>Relay HIGH<br/>Pompa Aktif]
+    PumpOn --> Timer5s[Timer 5 detik]
+    
+    Timer5s --> PumpOff[Relay LOW<br/>Pompa Mati]
+    PumpOff --> Soaking[STATE: PUMP_SOAKING<br/>OLED: SOAKING]
+    Soaking --> Timer55s[Timer 55 detik<br/>Air Meresap]
+    
+    Timer55s --> ReadAgain[Baca Sensor Lagi:<br/>Raw ADC → Moisture %]
+    ReadAgain --> CheckHigh{moisture >=<br/>upperThreshold<br/>85%?}
+    
+    CheckHigh -->|No| PumpOn
+    CheckHigh -->|Yes| Beep3[Buzzer 3x Bip Pendek<br/>OLED: STANDBY]
+    Beep3 --> Standby
+```
+
+#### 6.3 Deskripsi Algoritma
 1. **Inisialisasi Sistem:** Setup Serial Monitor (115200 bps), inisialisasi pin GPIO & I2C OLED, pembacaan status awal. Buzzer berbunyi 2x bip. OLED menampilkan splash screen.
 2. **Pembacaan Sensor:** ESP32 membaca tegangan analog dari Sensor (GPIO 34), mengonversinya menjadi persentase kelembapan (0–100%). OLED menampilkan nilai real-time kelembapan, suhu (jika ada), dan status sistem.
 3. **Pemeriksaan Kondisi Mulai:**
